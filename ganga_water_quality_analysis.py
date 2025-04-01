@@ -35,27 +35,33 @@ def preprocess_data(df):
 # Create sequences for LSTM
 def create_sequences(data, seq_length):
     if len(data) <= seq_length:
-        raise ValueError(f"❌ Not enough data! Data length: {len(data)}, Required: {seq_length + 1}")
+        raise ValueError(f"❌ Not enough data! Got {len(data)}, needed {seq_length+1}")
 
     sequences, labels = [], []
     for i in range(len(data) - seq_length):
         sequences.append(data[i:i + seq_length])
         labels.append(data[i + seq_length, -2:])
-    
+
     sequences, labels = np.array(sequences), np.array(labels)
-    
-    # Debugging prints
-    print(f"✅ Created {len(sequences)} sequences of shape {sequences.shape}")
+
+    # Check data shapes
+    if sequences.shape[0] == 0:
+        raise ValueError("❌ No valid training sequences created!")
+
+    print(f"✅ Created {sequences.shape[0]} sequences with shape {sequences.shape}")
     return sequences, labels
+
 
 
 # Create LSTM Model
 def build_lstm_model(input_shape):
+    print(f"✅ Model Input Shape: {input_shape}")  # Debugging
+
     model = Sequential([
-        LSTM(100, return_sequences=True, input_shape=input_shape),
-        Dropout(0.3),
+        LSTM(50, return_sequences=True, input_shape=input_shape),
+        Dropout(0.2),
         LSTM(50, return_sequences=False),
-        Dense(50, activation='relu'),
+        Dense(25),
         Dense(2)  # Predicting DO & BOD
     ])
     model.compile(optimizer='adam', loss='mean_squared_error')
@@ -97,6 +103,8 @@ def main():
     st.write(f"📌 y_train first sample:\n{y_train[:1]}")
     if len(y_train.shape) == 1:
         y_train = y_train.reshape(-1, 2)
+    
+    st.write(f"✅ X_train shape: {X_train.shape}, y_train shape: {y_train.shape}")
 
     model = train_model(X_train, y_train)
 
