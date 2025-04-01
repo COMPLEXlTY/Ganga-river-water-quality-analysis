@@ -107,32 +107,3 @@ def main():
 if __name__ == "__main__":
     main()
 
-# Install Streamlit and Cloudflared
-!pip install streamlit -q
-!wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared
-!chmod +x cloudflared
-
-# Write the Streamlit app script
-with open("app.py", "w") as f:
-    f.write("""
-import streamlit as st
-
-st.title("Hello from Google Colab 🚀")
-st.write("This is a Streamlit app running in Colab.")
-
-if st.button("Click me!"):
-    st.success("You clicked the button!")
-""")
-
-# Run Streamlit in the background
-import subprocess
-subprocess.Popen(["streamlit", "run", "app.py", "--server.port", "8501"])
-
-# Create a Cloudflare tunnel and expose the app
-!./cloudflared tunnel --url http://localhost:8501 --no-autoupdate
-
-
-
-"""# New Section"""
-
-!pip install streamlit pyngrok -q
