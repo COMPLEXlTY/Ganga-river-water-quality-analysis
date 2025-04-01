@@ -3,68 +3,47 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout
-import matplotlib.pyplot as plt
 import streamlit as st
-from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
+from sklearn.preprocessing import MinMaxScaler
 import plotly.express as px
 
 # Load dataset
 def load_data():
-    df = pd.read_csv("ganga_water_quality.csv")  # Ensure the correct path
+    df = pd.read_csv("/content/sample_data/ganga_water_quality.csv")  # Update this to the correct file path
     return df
 
 # Preprocess data
 def preprocess_data(df):
-    df.fillna(method='ffill', inplace=True)
-
-    # Encode Station-Location
-    encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
-    station_encoded = encoder.fit_transform(df[['Station-Location']])
-    station_df = pd.DataFrame(station_encoded, columns=encoder.get_feature_names_out())
-
-    # Normalize numerical data
+    # Handle missing values (you can use different strategies)
+    df.fillna(df.mean(), inplace=True)
+    
+    # Normalize the numerical features
+    numerical_features = df.drop(columns=["Potability"])  # Excluding the target column (Potability)
     scaler = MinMaxScaler()
-    numerical_features = ['Distance in Kms.', 'Dissolved Oxygen during 1986 (mg/l)',
-                          'Biological Oxygen Demand in 1986 (mg/l)',
-                          'Dissolved Oxygen during 2011 (mg/l)', 'Biological Oxygen demand during 2011 (mg/l)']
-    df[numerical_features] = scaler.fit_transform(df[numerical_features])
+    df[numerical_features.columns] = scaler.fit_transform(numerical_features)
 
-    df = pd.concat([station_df, df[numerical_features]], axis=1)
-    return df, scaler
+    # Encoding Potability (0 or 1)
+    y = df["Potability"].values
+    return df, y, scaler
 
 # Create sequences for LSTM
-def create_sequences(data, seq_length):
-    if len(data) <= seq_length:
-        raise ValueError(f"❌ Not enough data! Got {len(data)}, needed {seq_length+1}")
-
+def create_sequences(data, target, seq_length):
     sequences, labels = [], []
     for i in range(len(data) - seq_length):
         sequences.append(data[i:i + seq_length])
-        labels.append(data[i + seq_length, -2:])
-
-    sequences, labels = np.array(sequences), np.array(labels)
-
-    # Check data shapes
-    if sequences.shape[0] == 0:
-        raise ValueError("❌ No valid training sequences created!")
-
-    print(f"✅ Created {sequences.shape[0]} sequences with shape {sequences.shape}")
-    return sequences, labels
-
-
+        labels.append(target[i + seq_length])  # Predicting potability (0 or 1)
+    return np.array(sequences), np.array(labels)
 
 # Create LSTM Model
 def build_lstm_model(input_shape):
-    print(f"✅ Model Input Shape: {input_shape}")  # Debugging
-
     model = Sequential([
         LSTM(50, return_sequences=True, input_shape=input_shape),
         Dropout(0.2),
         LSTM(50, return_sequences=False),
         Dense(25),
-        Dense(2)  # Predicting DO & BOD
+        Dense(1, activation='sigmoid')  # Predicting Potability (binary classification)
     ])
-    model.compile(optimizer='adam', loss='mean_squared_error')
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     return model
 
 # Train model
@@ -75,58 +54,55 @@ def train_model(X_train, y_train):
 
 # Streamlit UI
 def main():
-    st.set_page_config(page_title="Ganga Water Quality Forecast", layout="wide")
-    st.title("🌊 Ganga River Water Quality Forecasting")
+    st.title("Water Potability Prediction using LSTM")
 
-    df = load_data()
-    df, scaler = preprocess_data(df)
+    # Upload the dataset
+    uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
 
-    # Sidebar filter
-    station_list = df.columns[:-5]  # Excluding numerical columns
-    selected_station = st.sidebar.selectbox("Select a Station", station_list)
-    
-    # Show data summary
-    st.sidebar.subheader("Dataset Overview")
-    st.sidebar.write(df.describe())
+        # Show the dataframe and check for missing values
+        st.write("Dataset Overview", df.head())
+        st.write("Missing values per column", df.isnull().sum())
 
-    # Historical Trends
-    st.subheader("📊 Historical Water Quality Data")
-    fig1 = px.line(df, x=df.index, y=['Dissolved Oxygen during 2011 (mg/l)', 'Biological Oxygen demand during 2011 (mg/l)'],
-                   title="Dissolved Oxygen & BOD Over Time")
-    st.plotly_chart(fig1)
+        # Preprocess the data
+        df, y, scaler = preprocess_data(df)
 
-    seq_length = 10
-    X, y = create_sequences(df.values, seq_length)
-    X_train, y_train = X[:-10], y[:-10]
-    st.write(f"📊 X_train shape: {X_train.shape}, y_train shape: {y_train.shape}")
-    st.write(f"📌 X_train first sample:\n{X_train[:1]}")
-    st.write(f"📌 y_train first sample:\n{y_train[:1]}")
-    if len(y_train.shape) == 1:
-        y_train = y_train.reshape(-1, 2)
-    
-    st.write(f"✅ X_train shape: {X_train.shape}, y_train shape: {y_train.shape}")
+        # Create sequences (for LSTM)
+        seq_length = 5
+        X, y = create_sequences(df.values, y, seq_length)
 
-    model = train_model(X_train, y_train)
+        # Split data into training and testing sets
+        X_train, X_test = X[:int(0.8*len(X))], X[int(0.8*len(X)):]
+        y_train, y_test = y[:int(0.8*len(y))], y[int(0.8*len(y)):]
 
-    future_predictions = model.predict(X[-10:])
+        # Train the model
+        model = train_model(X_train, y_train)
 
-    # Placeholder array for inverse transformation
-    num_features = df.shape[1]
-    dummy = np.zeros((future_predictions.shape[0], num_features))
-    dummy[:, -2:] = future_predictions
-    future_predictions = scaler.inverse_transform(dummy)[:, -2:]
+        # Evaluate the model
+        accuracy = model.evaluate(X_test, y_test)
+        st.write(f"Test accuracy: {accuracy[1]:.4f}")
 
-    pred_df = pd.DataFrame({
-        'Time': range(len(future_predictions)),
-        'Dissolved Oxygen': future_predictions[:, 0],
-        'Biological Oxygen Demand': future_predictions[:, 1]
-    })
+        # Make predictions
+        predictions = model.predict(X_test)
+        predicted_labels = (predictions > 0.5).astype(int)
 
-    # Forecast Chart
-    st.subheader("🔮 Future Predictions")
-    fig2 = px.line(pred_df, x='Time', y=['Dissolved Oxygen', 'Biological Oxygen Demand'],
-                   title="Forecasted DO & BOD")
-    st.plotly_chart(fig2)
+        # Display the first 10 predictions
+        st.write("First 10 Predictions vs Actual Potability")
+        results = pd.DataFrame({
+            'Predicted': predicted_labels.flatten(),
+            'Actual': y_test[:10]
+        })
+        st.write(results)
+
+        # Visualizing the results
+        st.subheader("Water Potability Distribution")
+        fig = px.histogram(results, x="Predicted", color="Actual", title="Predicted vs Actual Potability")
+        st.plotly_chart(fig)
+
+        # Show the line chart of prediction trends (for a quick visual)
+        st.subheader("Prediction Trend for the First 100 Data Points")
+        st.line_chart(predictions[:100].flatten())
 
 if __name__ == "__main__":
     main()
