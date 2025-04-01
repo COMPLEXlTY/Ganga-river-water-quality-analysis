@@ -91,7 +91,7 @@ def main():
     st.write(f"📌 X_train first sample:\n{X_train[:1]}")
     st.write(f"📌 y_train first sample:\n{y_train[:1]}")
     if len(y_train.shape) == 1:
-    y_train = y_train.reshape(-1, 2)
+        y_train = y_train.reshape(-1, 2)
 
     model = train_model(X_train, y_train)
 
