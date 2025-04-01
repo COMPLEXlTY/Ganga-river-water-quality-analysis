@@ -18,7 +18,7 @@ from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 
 # Load dataset
 def load_data():
-    df = pd.read_csv("/content/sample_data/ganga_water_quality.csv")
+    df = pd.read_csv("ganga_water_quality.csv")
     return df
 
 # Preprocess data
