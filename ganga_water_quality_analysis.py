@@ -34,11 +34,15 @@ def preprocess_data(df):
 
 # Create sequences for LSTM
 def create_sequences(data, seq_length):
+    if len(data) < seq_length + 1:
+        raise ValueError("Not enough data to create sequences. Try reducing seq_length.")
+    
     sequences, labels = [], []
     for i in range(len(data) - seq_length):
         sequences.append(data[i:i + seq_length])
         labels.append(data[i + seq_length, -2:])
     return np.array(sequences), np.array(labels)
+
 
 # Create LSTM Model
 def build_lstm_model(input_shape):
