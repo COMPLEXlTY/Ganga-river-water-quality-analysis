@@ -87,6 +87,10 @@ def main():
     seq_length = 10
     X, y = create_sequences(df.values, seq_length)
     X_train, y_train = X[:-10], y[:-10]
+    st.write(f"📊 X_train shape: {X_train.shape}, y_train shape: {y_train.shape}")
+    st.write(f"📌 X_train first sample:\n{X_train[:1]}")
+    st.write(f"📌 y_train first sample:\n{y_train[:1]}")
+
     model = train_model(X_train, y_train)
 
     future_predictions = model.predict(X[-10:])
