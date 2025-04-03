@@ -9,14 +9,14 @@ import plotly.express as px
 
 # Load dataset
 def load_data():
-    df = pd.read_csv("/content/sample_data/ganga_water_quality.csv")  # Update this to the correct file path
+    df = pd.read_csv("/content/sample_data/water_potability.csv")  # Update this to the correct file path
     return df
 
 # Preprocess data
 def preprocess_data(df):
     # Handle missing values (you can use different strategies)
     df.fillna(df.mean(), inplace=True)
-    
+
     # Normalize the numerical features
     numerical_features = df.drop(columns=["Potability"])  # Excluding the target column (Potability)
     scaler = MinMaxScaler()
