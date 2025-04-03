@@ -9,7 +9,7 @@ import plotly.express as px
 
 # Load dataset
 def load_data():
-    df = pd.read_csv("/content/sample_data/water_potability.csv")  # Update this to the correct file path
+    df = pd.read_csv("water_potability.csv")  # Update this to the correct file path
     return df
 
 # Preprocess data
